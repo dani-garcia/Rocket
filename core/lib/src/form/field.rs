@@ -35,6 +35,11 @@ pub struct DataField<'r, 'i> {
     /// characters (`:`, `>`, or `<`). If the submitted file name matches any of
     /// these properties or none was submitted, `file_name` will be `None`.
     pub file_name: Option<&'r str>,
+    /// The form field's file name, as submitted.
+    ///
+    /// This file name is not sanitized, and it could be dangerous to treat it
+    /// as a valid file name, prefer to use [file_name](#structfield.file_name) instead.
+    pub unsanitized_file_name: Option<&'r str>,
     /// The form field's Content-Type, as submitted, which may or may not
     /// reflect on `data`.
     pub content_type: ContentType,

@@ -101,6 +101,7 @@ pub enum TempFile<'v> {
     #[doc(hidden)]
     File {
         file_name: Option<&'v str>,
+        unsanitized_file_name: Option<&'v str>,
         content_type: Option<ContentType>,
         path: Either<TempPath, PathBuf>,
         len: u64,
@@ -176,6 +177,7 @@ impl<'v> TempFile<'v> {
                 file.write_all(content.as_bytes()).await?;
                 *self = TempFile::File {
                     file_name: None,
+                    unsanitized_file_name: None,
                     content_type: None,
                     path: Either::Right(new_path.to_path_buf()),
                     len: content.len() as u64
@@ -271,6 +273,13 @@ impl<'v> TempFile<'v> {
         }
     }
 
+    pub fn unsanitized_file_name(&self) -> Option<&str> {
+        match *self {
+            TempFile::File { unsanitized_file_name, .. } => unsanitized_file_name,
+            TempFile::Buffered { .. } => None
+        }
+    }
+
     /// Returns the Content-Type of the file as specified in the form field.
     ///
     /// A multipart data form field can optionally specify the content-type of a
@@ -297,6 +306,7 @@ impl<'v> TempFile<'v> {
         req: &Request<'_>,
         data: Data,
         file_name: Option<&'a str>,
+        unsanitized_file_name: Option<&'a str>,
         content_type: Option<ContentType>,
     ) -> io::Result<Capped<TempFile<'a>>> {
         let limit = content_type.as_ref()
@@ -316,7 +326,7 @@ impl<'v> TempFile<'v> {
         let mut file = File::from_std(file);
         let n = data.open(limit).stream_to(tokio::io::BufWriter::new(&mut file)).await?;
         let temp_file = TempFile::File {
-            content_type, file_name,
+            content_type, file_name, unsanitized_file_name,
             path: Either::Left(temp_path),
             len: n.written,
         };
@@ -335,7 +345,7 @@ impl<'v> FromFormField<'v> for Capped<TempFile<'v>> {
     async fn from_data(
         f: DataField<'v, '_>
     ) -> Result<Self, Errors<'v>> {
-        Ok(TempFile::from(f.request, f.data, f.file_name, Some(f.content_type)).await?)
+        Ok(TempFile::from(f.request, f.data, f.file_name, f.unsanitized_file_name, Some(f.content_type)).await?)
     }
 }
 
@@ -347,7 +357,7 @@ impl<'r> FromData<'r> for Capped<TempFile<'_>> {
         req: &'r crate::Request<'_>,
         data: crate::Data
     ) -> crate::data::Outcome<Self, Self::Error> {
-        TempFile::from(req, data, None, req.content_type().cloned()).await
+        TempFile::from(req, data, None, None, req.content_type().cloned()).await
             .into_outcome(Status::BadRequest)
     }
 }

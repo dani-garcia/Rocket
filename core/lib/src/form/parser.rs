@@ -183,6 +183,7 @@ impl<'r, 'i> MultipartParser<'r, 'i> {
                 request: self.request,
                 name: NameView::new(name),
                 file_name: file_name.and_then(sanitize),
+                unsanitized_file_name: file_name,
                 data: Data::from(field),
             })
         } else {
